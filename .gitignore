@@ -1,0 +1,7 @@
+.build/
+Canopy.app/
+Resources/AppIcon.icns
+Resources/AppIcon.iconset/
+.DS_Store
+*.xcodeproj
+.swiftpm/
