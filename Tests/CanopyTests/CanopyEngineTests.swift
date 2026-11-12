@@ -35,6 +35,44 @@ final class CanopyEngineTests: XCTestCase {
         XCTAssertGreaterThan(sunset.sunColor.x, sunset.sunColor.z)
     }
 
+    func testSolarCalculatorTracksRealSunriseSunset() {
+        // Boston, MA on Nov 12 2026 (EST, post-DST): real sunrise ≈ 6:30 AM,
+        // sunset ≈ 4:22 PM, solar-noon elevation ≈ 30°.
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let lat = 42.36, lon = -71.06
+        func boston(_ month: Int, _ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+            cal.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute))!
+        }
+
+        let day = boston(11, 12, 12)
+        let noonElev = SolarCalculator.solarElevation(at: day, latitude: lat, longitude: lon)
+        XCTAssertTrue((24.0...33.0).contains(noonElev), "Boston winter-noon sun should sit near 30°, got \(noonElev)")
+
+        // Auto Solar must already be dark-ish at 5 PM in November — the old
+        // clock-hour table kept it golden until 7 PM.
+        let dusk = LightingRig.solarState(for: boston(11, 12, 17), latitude: lat, longitude: lon)
+        XCTAssertLessThan(dusk.solarWarmth, 0.35)
+        XCTAssertLessThan(dusk.sunIntensity, 1.8)
+        let midday = LightingRig.solarState(for: day, latitude: lat, longitude: lon)
+        XCTAssertGreaterThan(midday.solarWarmth, 0.8)
+
+        // June 20 at 6 AM EDT: sun is up (~5:07 AM sunrise) — must not read as night.
+        let summerDawnElev = SolarCalculator.solarElevation(at: boston(6, 20, 6), latitude: lat, longitude: lon)
+        XCTAssertGreaterThan(summerDawnElev, 4.0)
+
+        // Sunrise/sunset checker vs. real almanac values (±15 min).
+        let (rise, set) = SolarCalculator.sunriseSunset(
+            on: day, latitude: lat, longitude: lon,
+            timeZone: TimeZone(identifier: "America/New_York")!
+        )
+        let dayStart = cal.startOfDay(for: day)
+        let riseMin = (rise?.timeIntervalSince(dayStart) ?? -1) / 60.0
+        let setMin = (set?.timeIntervalSince(dayStart) ?? -1) / 60.0
+        XCTAssertTrue((370.0...415.0).contains(riseMin), "Computed sunrise should land ~6:30 AM, got \(riseMin) min")
+        XCTAssertTrue((955.0...1000.0).contains(setMin), "Computed sunset should land ~4:22 PM, got \(setMin) min")
+    }
+
     func testWindAdvectionNeverAcceleratesOverLongUptimeAtIdleCPU() {
         let bus = OrganicPhysicsBus()
         let idleSnap = TelemetrySnapshot(cpuUsage: 0.04, networkActivity: 0.0, cursorUV: SIMD2<Float>(0.5, 0.5), cursorOnDesktopScreen: false)

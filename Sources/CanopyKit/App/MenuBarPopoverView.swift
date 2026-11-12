@@ -139,6 +139,13 @@ public struct MenuBarPopoverView: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            if controller.lightingPreset == .autoSolar {
+                Text(controller.solarSummary)
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 1)
+            }
         }
     }
 

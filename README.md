@@ -33,7 +33,7 @@ Everything on screen is driven by a shared organic physics bus — not canned an
 | **CPU load** (Mach `host_statistics64`, smoothed 5–13s) | Heavy builds roll in as slow weather gusts; idle settles to a calm breeze |
 | **Cursor position & velocity** (`NSEvent.mouseLocation`) | A damped breeze wake parts grass and stirs dust as you move — no accessibility permissions required |
 | **Network / disk bursts** | Extra pollen, seeds, and spores lift into the bokeh layer |
-| **System clock** | Auto solar cycle: misty dawn → lush day → golden hour → moonlit night (or pin Light Lush / Golden Hour / Dark Moody) |
+| **Real sun position** | Auto Solar computes true solar elevation (NOAA equations) at your inferred location: misty dawn → lush day → golden hour → moonlit night, tracking real sunrise/sunset through DST and seasons (or pin Light Lush / Golden Hour / Dark Moody) |
 
 ## Featherweight by design
 
@@ -47,7 +47,12 @@ Everything on screen is driven by a shared organic physics bus — not canned an
 A leaf icon lives in your status bar. The popover gives you:
 
 - Scene picker (all 5 scenes)
-- Lighting mode: Auto Solar / Light Lush / Golden Hour / Dark Moody
+- Lighting mode: Auto Solar / Light Lush / Golden Hour / Dark Moody — Auto shows today's computed sunrise/sunset under the picker so you can cross-check it against the real sky
+- Location for Auto Solar is inferred offline from your system time zone (no Location Services prompt); pin an exact spot if needed:
+  ```bash
+  defaults write com.kavi.canopy solarLatitude  -float 42.36
+  defaults write com.kavi.canopy solarLongitude -float -71.06
+  ```
 - Wind sensitivity, cursor wake, bokeh depth, and FPS sliders
 - Preview window toggle
 - Procedural wind audio (a lock-free `AVAudioSourceNode` pink-noise + resonant bandpass synth driven by the *same* wind buffer as the visuals — muted by default)

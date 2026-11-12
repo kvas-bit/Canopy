@@ -109,9 +109,34 @@ public final class LightingRig {
         case .darkMoody:
             return darkMoody
         case .autoSolar:
-            let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
-            let hour = Float(comps.hour ?? 12) + Float(comps.minute ?? 0) / 60.0
-            return solarState(forDecimalHour: hour)
+            return solarState(for: date)
+        }
+    }
+
+    /// Real-sun lighting: tracks the true solar elevation at the resolved
+    /// location (see `SolarCalculator`), so dawn, day length, and dusk follow
+    /// the actual sky — including DST and seasonal shifts.
+    public static func solarState(for date: Date) -> LightingState {
+        let loc = SolarCalculator.currentLocation()
+        return solarState(for: date, latitude: loc.latitude, longitude: loc.longitude)
+    }
+
+    public static func solarState(for date: Date, latitude: Double, longitude: Double) -> LightingState {
+        let elev = SolarCalculator.solarElevation(at: date, latitude: latitude, longitude: longitude)
+        return solarState(forElevation: Float(elev))
+    }
+
+    public static func solarState(forElevation elev: Float) -> LightingState {
+        if elev < -8.0 {
+            return darkMoody
+        } else if elev < -2.0 {
+            return .lerp(darkMoody, dawnMist, t: (elev + 8.0) / 6.0)
+        } else if elev < 7.0 {
+            return .lerp(dawnMist, goldenHour, t: (elev + 2.0) / 9.0)
+        } else if elev < 24.0 {
+            return .lerp(goldenHour, lightLush, t: (elev - 7.0) / 17.0)
+        } else {
+            return lightLush
         }
     }
 

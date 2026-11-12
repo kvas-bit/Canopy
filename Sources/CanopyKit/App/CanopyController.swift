@@ -48,6 +48,12 @@ public final class CanopyController: ObservableObject {
     @Published public private(set) var isCurrentlyPaused: Bool = false
     @Published public private(set) var cpuPercent: Int = 5
 
+    /// e.g. "☀︎ 6:31 AM → ☾ 4:22 PM · New York" — lets the Auto Solar row
+    /// cross-reference today's computed sun times against the real sky.
+    public var solarSummary: String {
+        SolarCalculator.summary()
+    }
+
     public let renderer: MetalRenderer
     public let windowManager: DesktopWindowManager
 
