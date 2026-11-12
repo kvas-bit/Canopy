@@ -4,6 +4,13 @@ import QuartzCore
 
 public final class MetalSurfaceView: NSView {
     public let metalLayer: CAMetalLayer
+    public var allowsReadback: Bool = false {
+        didSet {
+            if allowsReadback != oldValue {
+                metalLayer.framebufferOnly = !allowsReadback
+            }
+        }
+    }
     public var renderScale: CGFloat = 0.68 {
         didSet { updateDrawableSize() }
     }
@@ -68,6 +75,14 @@ public final class DesktopWindowManager: NSObject, NSWindowDelegate {
 
     public var isPreviewVisible: Bool {
         previewWindow?.isVisible ?? false
+    }
+
+    public var primaryDesktopLayer: CAMetalLayer? {
+        desktopViews.first?.metalLayer
+    }
+
+    public func setPrimaryDesktopReadback(_ on: Bool) {
+        desktopViews.first?.allowsReadback = on
     }
 
     public var previewScreenFrame: CGRect? {

@@ -79,7 +79,8 @@ public final class MetalRenderer {
         lighting: LightingState,
         apertureScale: Float,
         cursorScale: Float,
-        windScale: Float
+        windScale: Float,
+        broadcast: MimicBridge? = nil
     ) {
         guard frameSemaphore.wait(timeout: .now()) == .success else { return }
 
@@ -111,6 +112,27 @@ public final class MetalRenderer {
             cursorScale: cursorScale,
             windScale: windScale
         )
+
+        if let broadcast, !outTex.isFramebufferOnly,
+           let target = broadcast.nextTarget(device: device, width: outTex.width, height: outTex.height),
+           let blit = commandBuffer.makeBlitCommandEncoder() {
+            blit.copy(
+                from: outTex,
+                sourceSlice: 0,
+                sourceLevel: 0,
+                sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+                sourceSize: MTLSize(width: outTex.width, height: outTex.height, depth: 1),
+                to: target.texture,
+                destinationSlice: 0,
+                destinationLevel: 0,
+                destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+            )
+            blit.endEncoding()
+            let surfaceID = target.surfaceID
+            commandBuffer.addCompletedHandler { _ in
+                broadcast.publish(surfaceID: surfaceID)
+            }
+        }
 
         commandBuffer.present(drawable)
         commandBuffer.commit()

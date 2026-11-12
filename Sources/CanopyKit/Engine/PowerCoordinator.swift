@@ -22,7 +22,7 @@ public struct PowerStatus: Equatable {
 }
 
 public final class PowerCoordinator {
-    private var isDisplayAsleep = false
+    public private(set) var isDisplayAsleep = false
     private var lastOcclusionCheck: TimeInterval = 0
     private var cachedCoverage: Float = 0.0
     private let ownPID: pid_t = ProcessInfo.processInfo.processIdentifier
@@ -40,7 +40,8 @@ public final class PowerCoordinator {
         previewWindowVisible: Bool,
         fpsMode: FPSCapMode,
         cursorKineticEnergy: Float,
-        gustStrength: Float
+        gustStrength: Float,
+        coverageOverride: Float? = nil
     ) -> PowerStatus {
         if userPaused {
             return PowerStatus(isRenderingPaused: true, pauseReason: "Paused", targetFPS: 0, desktopCoverage: cachedCoverage)
@@ -52,7 +53,9 @@ public final class PowerCoordinator {
             return PowerStatus(isRenderingPaused: true, pauseReason: "Low Power Mode", targetFPS: 0, desktopCoverage: cachedCoverage)
         }
 
-        if now - lastOcclusionCheck >= 0.65 {
+        if let coverageOverride {
+            cachedCoverage = coverageOverride
+        } else if now - lastOcclusionCheck >= 0.65 {
             lastOcclusionCheck = now
             cachedCoverage = Self.estimateDesktopOcclusion(excludingPID: ownPID)
         }

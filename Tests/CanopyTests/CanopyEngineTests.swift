@@ -114,4 +114,52 @@ final class CanopyEngineTests: XCTestCase {
         let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
         XCTAssertGreaterThan(size, 5_000)
     }
+
+    func testMimicBridgeProtocolPacking() {
+        XCTAssertEqual(MimicBridgeProtocol.packFrame(surfaceID: 0xABCD, seq: 7), 0xABCD_0000_0007)
+
+        let state = (UInt64(4242) << 32) | (UInt64(0b11) << 16) | 875
+        let sub = MimicBridgeProtocol.unpackSubscriber(state)
+        XCTAssertEqual(sub?.pid, 4242)
+        XCTAssertEqual(sub?.active, true)
+        XCTAssertEqual(sub?.wantsFrames, true)
+        XCTAssertEqual(sub?.coverage ?? -1, 0.875, accuracy: 0.001)
+
+        let inactive = (UInt64(4242) << 32) | (UInt64(0b10) << 16) | 0
+        XCTAssertEqual(MimicBridgeProtocol.unpackSubscriber(inactive)?.active, false)
+        XCTAssertEqual(MimicBridgeProtocol.unpackSubscriber(inactive)?.wantsFrames, true)
+        XCTAssertNil(MimicBridgeProtocol.unpackSubscriber(0))
+    }
+
+    func testPowerCoordinatorHonoursCoverageOverride() {
+        let pc = PowerCoordinator()
+        let covered = pc.evaluate(
+            now: 1.0,
+            userPaused: false,
+            pauseWhenOccluded: true,
+            previewWindowVisible: false,
+            fpsMode: .adaptive,
+            cursorKineticEnergy: 0,
+            gustStrength: 0,
+            coverageOverride: 1.0
+        )
+        XCTAssertTrue(covered.isRenderingPaused)
+        XCTAssertEqual(covered.pauseReason, "Desktop Covered")
+
+        let open = pc.evaluate(
+            now: 2.0,
+            userPaused: false,
+            pauseWhenOccluded: true,
+            previewWindowVisible: false,
+            fpsMode: .adaptive,
+            cursorKineticEnergy: 0,
+            gustStrength: 0,
+            coverageOverride: 0.0
+        )
+        if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            XCTAssertNotEqual(open.pauseReason, "Desktop Covered")
+        } else {
+            XCTAssertFalse(open.isRenderingPaused)
+        }
+    }
 }

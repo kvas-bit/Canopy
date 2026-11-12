@@ -90,6 +90,10 @@ Sources/CanopyKit/
 
 A new scene only needs to conform to `MetalScene` — it automatically inherits telemetry, cursor wakes, solar lighting, HDR bokeh, occlusion pausing, and snapshots.
 
+## Mimic bridge
+
+Canopy can hand the live wallpaper to Mimic through a Darwin-notify channel instead of screen capture. Mimic posts its subscription on `com.kavi.mimic.subscriber` (pid, ghosting-active flag, wants-frames flag, coverage permille); Canopy answers on `com.kavi.canopy.framebus` with a shared global IOSurface id plus a sequence number, blitted from the primary desktop drawable. Frames are only shared while Mimic asks for them — otherwise the framebuffer stays readback-protected and nothing is copied.
+
 ## License
 
 [MIT](LICENSE) © Kavi Vasudeo

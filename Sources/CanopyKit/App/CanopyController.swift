@@ -34,6 +34,9 @@ public final class CanopyController: ObservableObject {
         didSet {
             defaults.set(desktopWallpaperEnabled, forKey: "desktopEnabled")
             windowManager.setDesktopEnabled(desktopWallpaperEnabled)
+            if !desktopWallpaperEnabled {
+                bridge.stop()
+            }
         }
     }
     @Published public var audioEnabled: Bool {
@@ -63,6 +66,7 @@ public final class CanopyController: ObservableObject {
     private let lightingRig = LightingRig()
     private let powerCoordinator = PowerCoordinator()
     private let audioEngine = WindAudioEngine()
+    private let bridge = MimicBridge()
 
     private var timer: DispatchSourceTimer?
     private var currentTimerFPS: Int = 0
@@ -71,6 +75,7 @@ public final class CanopyController: ObservableObject {
     private var prevSelfCPUTime: Double = 0
     private var prevSelfSampleWall: CFTimeInterval = 0
     private var cachedSelfCPUPercent: Double = 0.8
+    private var lastBridgeRefresh: CFTimeInterval = 0
 
     public init() throws {
         let renderer = try Self.makeDefaultRenderer()
@@ -129,6 +134,7 @@ public final class CanopyController: ObservableObject {
         timer?.cancel()
         timer = nil
         audioEngine.shutdown()
+        bridge.stop()
     }
 
     private func registerWorkspaceNotifications() {
@@ -184,6 +190,16 @@ public final class CanopyController: ObservableObject {
             cursorReactivityScale: Float(cursorReactivity)
         )
 
+        if now - lastBridgeRefresh >= 0.5 {
+            lastBridgeRefresh = now
+            bridge.refresh()
+        }
+        let wantsFrames = bridge.wantsFrames && windowManager.primaryDesktopLayer != nil
+        windowManager.setPrimaryDesktopReadback(wantsFrames)
+        if !wantsFrames {
+            bridge.stop()
+        }
+
         let power = powerCoordinator.evaluate(
             now: now,
             userPaused: userPaused,
@@ -191,7 +207,8 @@ public final class CanopyController: ObservableObject {
             previewWindowVisible: windowManager.isPreviewVisible,
             fpsMode: fpsMode,
             cursorKineticEnergy: physics.cursorKineticEnergy,
-            gustStrength: physics.gustStrength
+            gustStrength: physics.gustStrength,
+            coverageOverride: bridge.coverageOverride
         )
 
         let desktopCovered = pauseWhenOccluded && power.desktopCoverage >= 0.92
@@ -219,6 +236,22 @@ public final class CanopyController: ObservableObject {
             let reason = layers.isEmpty ? "No Active Surface" : (power.pauseReason ?? "Paused")
             if statusSummary != reason {
                 statusSummary = reason
+            }
+            if wantsFrames, bridge.needsKeyframe, !powerCoordinator.isDisplayAsleep,
+               let primaryLayer = windowManager.primaryDesktopLayer {
+                let lighting = lightingRig.evaluate(preset: lightingPreset, dt: dt)
+                renderer.renderToDrawable(
+                    layer: primaryLayer,
+                    sceneKind: selectedScene,
+                    elapsedTime: elapsed,
+                    dt: dt,
+                    physics: physics,
+                    lighting: lighting,
+                    apertureScale: Float(bokehDepth),
+                    cursorScale: Float(cursorReactivity),
+                    windScale: Float(windReactivity),
+                    broadcast: bridge
+                )
             }
             scheduleRenderLoop(fps: 2)
             return
@@ -259,7 +292,8 @@ public final class CanopyController: ObservableObject {
                 lighting: lighting,
                 apertureScale: Float(bokehDepth),
                 cursorScale: Float(cursorReactivity),
-                windScale: Float(windReactivity)
+                windScale: Float(windReactivity),
+                broadcast: wantsFrames && layer === windowManager.primaryDesktopLayer ? bridge : nil
             )
         }
     }
